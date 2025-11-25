@@ -33,41 +33,74 @@
       </div>
     </header>
 
+    <div class="status-banner">
+      <div class="status-item">
+        <div class="status-label">Standard pro</div>
+        <div class="status-value">Suivi budget, équipes, stocks</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">Sauvegarde</div>
+        <div class="status-value">Export PDF &amp; Excel en un clic</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">Confiance</div>
+        <div class="status-value">Visibilité temps réel par chantier</div>
+      </div>
+    </div>
+
     <!-- VUE AUTHENTIFICATION -->
     <section id="auth-view" class="active">
-      <div class="auth-layout card">
-        <div class="card-header">
-          <div>
-            <div class="card-title" id="auth-title">Connexion à l’espace chantier</div>
-            <div class="card-sub" id="auth-subtitle">
-              Saisissez vos identifiants pour accéder à votre tableau de bord.
+      <div class="auth-grid">
+        <div class="auth-layout card">
+          <div class="card-header">
+            <div>
+              <div class="card-title" id="auth-title">Connexion à l’espace chantier</div>
+              <div class="card-sub" id="auth-subtitle">
+                Saisissez vos identifiants pour accéder à votre tableau de bord.
+              </div>
             </div>
           </div>
+
+          <form id="auth-form">
+            <div class="field">
+              <label for="auth-username">Identifiant</label>
+              <input id="auth-username" type="text" required placeholder="Ex. chef.chantier" />
+            </div>
+            <div class="field" style="margin-top:8px;">
+              <label for="auth-password">Mot de passe</label>
+              <input id="auth-password" type="password" required placeholder="Mot de passe" />
+            </div>
+            <div class="hint" style="margin-top:6px;">
+              L’authentification est purement locale (stockage dans ce navigateur).
+              À ne pas utiliser pour des données réellement sensibles.
+            </div>
+            <div class="auth-actions">
+              <button type="submit" class="btn btn-accent" id="auth-submit-btn">
+                Se connecter
+              </button>
+              <div class="auth-toggle" id="auth-toggle-text">
+                Pas encore de compte ?
+                <button type="button" id="toggle-auth-mode">Créer un compte</button>
+              </div>
+            </div>
+          </form>
         </div>
 
-        <form id="auth-form">
-          <div class="field">
-            <label for="auth-username">Identifiant</label>
-            <input id="auth-username" type="text" required placeholder="Ex. chef.chantier" />
-          </div>
-          <div class="field" style="margin-top:8px;">
-            <label for="auth-password">Mot de passe</label>
-            <input id="auth-password" type="password" required placeholder="Mot de passe" />
-          </div>
-          <div class="hint" style="margin-top:6px;">
-            L’authentification est purement locale (stockage dans ce navigateur).
-            À ne pas utiliser pour des données réellement sensibles.
-          </div>
-          <div class="auth-actions">
-            <button type="submit" class="btn btn-accent" id="auth-submit-btn">
-              Se connecter
-            </button>
-            <div class="auth-toggle" id="auth-toggle-text">
-              Pas encore de compte ?
-              <button type="button" id="toggle-auth-mode">Créer un compte</button>
+        <div class="card auth-benefits">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Une console prête pour le terrain</div>
+              <div class="card-sub">Rassurez vos équipes avec un récapitulatif clair, des exports immédiats et une gouvernance simplifiée.</div>
             </div>
           </div>
-        </form>
+          <ul>
+            <li><span>✓</span> Séparation stricte des chantiers avec verrouillage lecture seule.</li>
+            <li><span>✓</span> Historique interne pour tracer chaque décision.</li>
+            <li><span>✓</span> Inventaire graphique des matériaux payés vs. restant.</li>
+            <li><span>✓</span> Tableau de bord budgétaire prêt pour les comités.</li>
+          </ul>
+          <div class="pill muted">Fonctionne hors ligne, sans serveur externe.</div>
+        </div>
       </div>
     </section>
 
@@ -96,6 +129,29 @@
           <button class="btn btn-ghost" id="btn-export-pdf">Exporter en PDF</button>
           <button class="btn btn-ghost" id="btn-export-excel">Exporter en Excel</button>
           <button class="btn btn-ghost" id="logout-btn">Se déconnecter</button>
+        </div>
+      </div>
+
+      <div class="insight-row">
+        <div class="insight-card">
+          <div class="insight-label">Budget déclaré</div>
+          <div class="insight-value" id="kpi-budget-initial">0 FCFA</div>
+          <div class="insight-meta">Référence actualisée pour le chantier.</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-label">Dépenses engagées</div>
+          <div class="insight-value" id="kpi-depenses">0 FCFA</div>
+          <div class="insight-meta">Inclut tranches ouvriers et achats.</div>
+        </div>
+        <div class="insight-card highlight">
+          <div class="insight-label">Solde disponible</div>
+          <div class="insight-value" id="kpi-solde">0 FCFA</div>
+          <div class="insight-meta">Calcule automatique des restes à engager.</div>
+        </div>
+        <div class="insight-card danger-soft">
+          <div class="insight-label">Dettes fournisseurs</div>
+          <div class="insight-value" id="kpi-dettes">0 FCFA</div>
+          <div class="insight-meta">Montants restants sur les achats à crédit.</div>
         </div>
       </div>
 
