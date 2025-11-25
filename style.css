@@ -509,6 +509,44 @@ input:focus,select:focus,textarea:focus{
   cursor:pointer;
   padding:0;
 }
+.password-field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.password-wrapper{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.password-wrapper input{
+  flex:1;
+}
+.password-toggle{
+  padding:8px 10px;
+  font-size:11px;
+}
+.password-toggle:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+}
+.role-pill{
+  margin-left:6px;
+  padding:3px 6px;
+  border-radius:6px;
+  background:rgba(59,130,246,0.12);
+  color:var(--accent);
+  font-size:11px;
+}
+.role-visitor .role-pill{
+  background:rgba(248,113,113,0.12);
+  color:var(--danger);
+}
+
+[data-requires-admin]:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+}
 
 /* Hints */
 .hint{
