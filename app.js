@@ -180,6 +180,7 @@ function validatePasswordComplexity(pwd){
 const LS_USERS_KEY = "chantierApp_users";
 const LS_CURRENT_USER_KEY = "chantierApp_currentUser";
 const LS_DATA_PREFIX = "chantierApp_data_";
+const LS_REGISTER_GUARD_KEY = "chantierApp_registerGuard";
 const ROLE_ADMIN = "admin";
 const ROLE_VISITOR = "visitor";
 
@@ -209,6 +210,24 @@ function loadUsers(){
 }
 function saveUsers(list){
   localStorage.setItem(LS_USERS_KEY, JSON.stringify(list));
+}
+function hasAdminAccount(users){
+  const list = Array.isArray(users) ? users : loadUsers();
+  return list.some(u => (u.role || ROLE_ADMIN) === ROLE_ADMIN);
+}
+function loadRegisterGuardHash(){
+  try{
+    return localStorage.getItem(LS_REGISTER_GUARD_KEY);
+  }catch(e){
+    console.error("Erreur lecture mot de passe de création", e);
+    return null;
+  }
+}
+function saveRegisterGuardHash(hash){
+  localStorage.setItem(LS_REGISTER_GUARD_KEY, hash);
+}
+function clearRegisterGuardHash(){
+  localStorage.removeItem(LS_REGISTER_GUARD_KEY);
 }
 function getCurrentUsername(){
   return localStorage.getItem(LS_CURRENT_USER_KEY);
@@ -323,6 +342,9 @@ const authPasswordConfirmInput = document.getElementById("auth-password-confirm"
 const authPasswordConfirmField = document.getElementById("auth-password-confirm-field");
 const authRoleSelect = document.getElementById("auth-role");
 const authRoleField = document.getElementById("auth-role-field");
+const authRegisterGuardField = document.getElementById("auth-register-guard-field");
+const authRegisterGuardInput = document.getElementById("auth-register-guard");
+const authRegisterGuardHint = document.getElementById("auth-register-guard-hint");
 const togglePasswordBtn = document.getElementById("toggle-password-visibility");
 const togglePasswordConfirmBtn = document.getElementById("toggle-password-confirm-visibility");
 const authTitle = document.getElementById("auth-title");
@@ -414,6 +436,12 @@ const formChangePassword = document.getElementById("form-change-password");
 const oldPasswordInput = document.getElementById("old-password");
 const newPasswordInput = document.getElementById("new-password");
 const newPasswordConfirmInput = document.getElementById("new-password-confirm");
+const registerGuardSection = document.getElementById("register-guard-section");
+const formRegisterGuard = document.getElementById("form-register-guard");
+const registerGuardPasswordInput = document.getElementById("register-guard-password");
+const registerGuardPasswordConfirmInput = document.getElementById("register-guard-password-confirm");
+const registerGuardStatus = document.getElementById("register-guard-status");
+const btnClearRegisterGuard = document.getElementById("btn-clear-register-guard");
 const btnThemeDark = document.getElementById("btn-theme-dark");
 const btnThemeLight = document.getElementById("btn-theme-light");
 
@@ -459,6 +487,9 @@ function applyRoleContext(){
     currentRoleSpan.textContent = roleLabel;
   }
   document.body.classList.toggle("role-visitor", currentUserRole === ROLE_VISITOR);
+  if(registerGuardSection){
+    registerGuardSection.classList.toggle("hidden", currentUserRole !== ROLE_ADMIN);
+  }
   applyPermissionLocks();
 }
 function applyPermissionLocks(){
@@ -552,6 +583,35 @@ function setActiveChantier(id){
 /**********************
  * Authentification
  **********************/
+function updateRegisterGuardFieldState(){
+  if(!authRegisterGuardField) return;
+  const users = loadUsers();
+  const guardHash = loadRegisterGuardHash();
+  const adminExists = hasAdminAccount(users);
+  const shouldShow = authMode === "register";
+
+  if(shouldShow){
+    authRegisterGuardField.classList.remove("hidden");
+    const requiresGuard = adminExists && !!guardHash;
+    authRegisterGuardInput.required = requiresGuard;
+    authRegisterGuardInput.disabled = adminExists && !guardHash;
+
+    if(adminExists && !guardHash){
+      authRegisterGuardHint.textContent =
+        "Un administrateur doit définir le mot de passe d’activation dans les paramètres avant toute nouvelle création.";
+    }else if(adminExists && guardHash){
+      authRegisterGuardHint.textContent =
+        "Saisissez le mot de passe d’activation fourni par un administrateur pour valider la création.";
+    }else{
+      authRegisterGuardHint.textContent =
+        "Création initiale : définissez d’abord un compte administrateur avant de sécuriser l’activation.";
+    }
+  }else{
+    authRegisterGuardField.classList.add("hidden");
+    authRegisterGuardInput.required = false;
+    authRegisterGuardInput.disabled = false;
+  }
+}
 function setAuthMode(mode){
   authMode = mode;
   if(mode === "login"){
@@ -569,6 +629,7 @@ function setAuthMode(mode){
     authPasswordConfirmField.classList.remove("hidden");
     authRoleField.classList.remove("hidden");
   }
+  updateRegisterGuardFieldState();
   const toggleBtn = document.getElementById("toggle-auth-mode");
   toggleBtn.addEventListener("click", ()=> setAuthMode(authMode==="login" ? "register" : "login"));
 }
@@ -628,6 +689,24 @@ authForm.addEventListener("submit",async (e)=>{
       alert("Cet identifiant est déjà utilisé.");
       return;
     }
+    const adminExists = hasAdminAccount(users);
+    const guardHash = loadRegisterGuardHash();
+    if(adminExists){
+      if(!guardHash){
+        alert("La création de nouveaux comptes est désactivée tant qu’un administrateur n’a pas défini le mot de passe d’activation dans les paramètres.");
+        return;
+      }
+      const activationPassword = authRegisterGuardInput ? authRegisterGuardInput.value : "";
+      if(!activationPassword){
+        alert("Veuillez saisir le mot de passe d’activation défini par un administrateur.");
+        return;
+      }
+      const activationHash = await hashPassword(activationPassword);
+      if(activationHash !== guardHash){
+        alert("Mot de passe d’activation incorrect.");
+        return;
+      }
+    }
     const passwordHash = await hashPassword(password);
     const role = (authRoleSelect && authRoleSelect.value === ROLE_VISITOR) ? ROLE_VISITOR : ROLE_ADMIN;
     users.push({username,passwordHash,role,avatarDataUrl:null});
@@ -663,6 +742,7 @@ authForm.addEventListener("submit",async (e)=>{
   }
   authPasswordInput.value = "";
   if(authPasswordConfirmInput) authPasswordConfirmInput.value = "";
+  if(authRegisterGuardInput) authRegisterGuardInput.value = "";
 });
 
 logoutBtn.addEventListener("click", ()=>{
@@ -1560,6 +1640,42 @@ formChangePassword.addEventListener("submit",async (e)=>{
   alert("Mot de passe mis à jour avec succès.");
 });
 
+if(formRegisterGuard){
+  formRegisterGuard.addEventListener("submit",async (e)=>{
+    e.preventDefault();
+    if(!requireAdmin("La gestion du mot de passe d’activation")) return;
+    const pwd = registerGuardPasswordInput.value;
+    const confirm = registerGuardPasswordConfirmInput.value;
+    if(!pwd || !confirm){
+      alert("Veuillez saisir et confirmer le mot de passe d’activation.");
+      return;
+    }
+    if(pwd !== confirm){
+      alert("La confirmation du mot de passe d’activation ne correspond pas.");
+      return;
+    }
+    const hash = await hashPassword(pwd);
+    saveRegisterGuardHash(hash);
+    registerGuardPasswordInput.value = "";
+    registerGuardPasswordConfirmInput.value = "";
+    renderRegisterGuardControls();
+    updateRegisterGuardFieldState();
+    addLog("Mise à jour du mot de passe d’activation pour la création de comptes.");
+    alert("Mot de passe d’activation enregistré.");
+  });
+}
+if(btnClearRegisterGuard){
+  btnClearRegisterGuard.addEventListener("click",()=>{
+    if(!requireAdmin("La désactivation du mot de passe d’activation")) return;
+    if(!confirm("Voulez-vous désactiver l’exigence de mot de passe pour créer un compte ?")) return;
+    clearRegisterGuardHash();
+    renderRegisterGuardControls();
+    updateRegisterGuardFieldState();
+    addLog("Suppression du mot de passe d’activation des créations de comptes.");
+    alert("Exigence de mot de passe désactivée. Les administrateurs doivent en définir un nouveau avant toute création.");
+  });
+}
+
 if(customListsForm){
   customListsForm.addEventListener("submit",(e)=>{
     e.preventDefault();
@@ -1857,9 +1973,22 @@ function renderSettingsView(){
   }else{
     avatarPreview.style.backgroundImage = "";
   }
+  renderRegisterGuardControls();
   renderCustomLists();
   renderSettingsChantiers();
   renderLogs();
+}
+
+function renderRegisterGuardControls(){
+  if(!registerGuardStatus) return;
+  const guardHash = loadRegisterGuardHash();
+  if(guardHash){
+    registerGuardStatus.textContent = "Un mot de passe d’activation est actuellement requis pour créer un compte.";
+    if(btnClearRegisterGuard) btnClearRegisterGuard.disabled = false;
+  }else{
+    registerGuardStatus.textContent = "Aucun mot de passe d’activation n’est défini : la création de nouveaux comptes reste bloquée.";
+    if(btnClearRegisterGuard) btnClearRegisterGuard.disabled = true;
+  }
 }
 
 function renderCustomLists(){

@@ -91,6 +91,17 @@
                 <option value="visitor">Visiteur (consultation limitée)</option>
               </select>
             </div>
+            <div class="field hidden" id="auth-register-guard-field">
+              <label for="auth-register-guard">Mot de passe d’activation</label>
+              <input
+                id="auth-register-guard"
+                type="password"
+                placeholder="Défini par un administrateur"
+              />
+              <div class="hint" id="auth-register-guard-hint">
+                Saisissez le mot de passe transmis par un administrateur pour créer un compte.
+              </div>
+            </div>
             <div class="hint" style="margin-top:6px;">
               L’authentification est purement locale (stockage dans ce navigateur).
               À ne pas utiliser pour des données réellement sensibles.
@@ -631,6 +642,41 @@
                 <button type="submit" class="btn btn-ghost">
                   Mettre à jour le mot de passe
                 </button>
+              </form>
+            </div>
+
+            <div class="settings-section" id="register-guard-section">
+              <h3>Contrôle de la création de comptes</h3>
+              <form id="form-register-guard">
+                <div class="field-row">
+                  <div class="field">
+                    <label for="register-guard-password">Mot de passe d’activation</label>
+                    <input
+                      id="register-guard-password"
+                      type="password"
+                      placeholder="Mot de passe requis pour créer un compte"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="register-guard-password-confirm">Confirmation</label>
+                    <input
+                      id="register-guard-password-confirm"
+                      type="password"
+                      placeholder="Répétez le mot de passe d’activation"
+                    />
+                  </div>
+                </div>
+                <div class="hint" id="register-guard-status"></div>
+                <div class="actions-row" style="margin-top:8px; gap:8px;">
+                  <button type="submit" class="btn btn-ghost">Enregistrer le mot de passe</button>
+                  <button type="button" class="btn btn-danger-soft" id="btn-clear-register-guard">
+                    Désactiver l’exigence de mot de passe
+                  </button>
+                </div>
+                <div class="hint">
+                  Ce mot de passe est requis pour activer le bouton « Créer un compte » et ne peut être défini que
+                  par un administrateur existant.
+                </div>
               </form>
             </div>
 
