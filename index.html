@@ -238,6 +238,7 @@
                       <option value="Ciment"></option>
                       <option value="Sable"></option>
                       <option value="Gravier"></option>
+                      <option value="Eau"></option>
                       <option value="Fer à béton"></option>
                       <option value="Parpaing"></option>
                       <option value="Brique"></option>
@@ -254,6 +255,10 @@
                       <option value="Clous / Vis"></option>
                       <option value="Treillis soudé"></option>
                       <option value="Tasseaux"></option>
+                      <option value="Béton prêt à l'emploi"></option>
+                      <option value="Agrégats"></option>
+                      <option value="Gravillons"></option>
+                      <option value="Bâches"></option>
                     </datalist>
                   </div>
                   <div class="field">
@@ -313,6 +318,9 @@
                       <option value="Ferraillage"></option>
                       <option value="Badigeonnage"></option>
                       <option value="Carrelage"></option>
+                      <option value="Terrassement"></option>
+                      <option value="Fondations"></option>
+                      <option value="Finitions"></option>
                     </datalist>
                   </div>
                 </div>
@@ -360,6 +368,8 @@
                       <option value="Menuisier"></option>
                       <option value="Ferrailleur"></option>
                       <option value="Ouvrier"></option>
+                      <option value="Terrassier"></option>
+                      <option value="Chef de chantier"></option>
                     </datalist>
                   </div>
                 </div>
@@ -625,6 +635,36 @@
             <div id="settings-chantiers-list" class="list settings-chantiers-list">
               <!-- Rempli par app.js -->
             </div>
+          </div>
+
+          <!-- Listes personnalisables -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Listes déroulantes personnalisées</div>
+                <div class="card-sub">
+                  Ajoutez ou retirez des suggestions pour les matériaux, les métiers et les catégories de travaux.
+                </div>
+              </div>
+            </div>
+            <form id="custom-lists-form" class="settings-section">
+              <div class="field">
+                <label for="custom-materials">Matériaux proposés (une ligne par matériau)</label>
+                <textarea id="custom-materials" rows="4" placeholder="Ex. Eau\nPierre\nBéton prêt à l'emploi"></textarea>
+              </div>
+              <div class="field" style="margin-top:8px;">
+                <label for="custom-metiers">Métiers proposés</label>
+                <textarea id="custom-metiers" rows="3" placeholder="Ex. Maçon\nTerrassier\nPeintre"></textarea>
+              </div>
+              <div class="field" style="margin-top:8px;">
+                <label for="custom-categories">Catégories / travaux proposés</label>
+                <textarea id="custom-categories" rows="3" placeholder="Ex. Maçonnerie\nTerrassement\nFinitions"></textarea>
+              </div>
+              <button type="submit" class="btn btn-ghost" style="margin-top:10px;">Mettre à jour les listes</button>
+              <div class="hint" style="margin-top:6px;">
+                Les listes restent toujours modifiables : les entrées sont ajoutées aux valeurs de base et aux éléments déjà enregistrés.
+              </div>
+            </form>
           </div>
         </div>
 
