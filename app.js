@@ -281,6 +281,10 @@ const statBudgetInitial = document.getElementById("stat-budget-initial");
 const statDepenses = document.getElementById("stat-depenses");
 const statSolde = document.getElementById("stat-solde");
 const statDettes = document.getElementById("stat-dettes");
+const kpiBudgetInitial = document.getElementById("kpi-budget-initial");
+const kpiDepenses = document.getElementById("kpi-depenses");
+const kpiSolde = document.getElementById("kpi-solde");
+const kpiDettes = document.getElementById("kpi-dettes");
 
 const tabButtons = document.querySelectorAll(".tab");
 const tabMateriauxPanel = document.getElementById("tab-materiaux");
@@ -617,10 +621,20 @@ function computeTotals(){
 function renderBudgetStats(){
   if(!currentData) return;
   const totals = computeTotals();
-  statBudgetInitial.textContent = formatAmount(currentData.budgetInitial || 0);
-  statDepenses.textContent = formatAmount(totals.depenses);
-  statSolde.textContent = formatAmount(totals.solde);
-  statDettes.textContent = formatAmount(totals.dettes);
+  const budgetInitialFormatted = formatAmount(currentData.budgetInitial || 0);
+  const depensesFormatted = formatAmount(totals.depenses);
+  const soldeFormatted = formatAmount(totals.solde);
+  const dettesFormatted = formatAmount(totals.dettes);
+
+  statBudgetInitial.textContent = budgetInitialFormatted;
+  statDepenses.textContent = depensesFormatted;
+  statSolde.textContent = soldeFormatted;
+  statDettes.textContent = dettesFormatted;
+
+  if(kpiBudgetInitial) kpiBudgetInitial.textContent = budgetInitialFormatted;
+  if(kpiDepenses) kpiDepenses.textContent = depensesFormatted;
+  if(kpiSolde) kpiSolde.textContent = soldeFormatted;
+  if(kpiDettes) kpiDettes.textContent = dettesFormatted;
   budgetInitialInput.value = currentData.budgetInitial || "";
   budgetNoteInput.value = currentData.budgetNote || "";
 }
