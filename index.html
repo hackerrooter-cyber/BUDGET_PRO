@@ -66,9 +66,30 @@
               <label for="auth-username">Identifiant</label>
               <input id="auth-username" type="text" required placeholder="Ex. chef.chantier" />
             </div>
-            <div class="field" style="margin-top:8px;">
+            <div class="field password-field" style="margin-top:8px;">
               <label for="auth-password">Mot de passe</label>
-              <input id="auth-password" type="password" required placeholder="Mot de passe" />
+              <div class="password-wrapper">
+                <input id="auth-password" type="password" required placeholder="Mot de passe" />
+                <button type="button" class="btn btn-ghost password-toggle" id="toggle-password-visibility">
+                  Afficher
+                </button>
+              </div>
+            </div>
+            <div class="field password-field" id="auth-password-confirm-field">
+              <label for="auth-password-confirm">Confirmer le mot de passe</label>
+              <div class="password-wrapper">
+                <input id="auth-password-confirm" type="password" placeholder="Répétez le mot de passe" />
+                <button type="button" class="btn btn-ghost password-toggle" id="toggle-password-confirm-visibility">
+                  Afficher
+                </button>
+              </div>
+            </div>
+            <div class="field" id="auth-role-field">
+              <label for="auth-role">Rôle du compte</label>
+              <select id="auth-role">
+                <option value="admin">Administrateur</option>
+                <option value="visitor">Visiteur (consultation limitée)</option>
+              </select>
             </div>
             <div class="hint" style="margin-top:6px;">
               L’authentification est purement locale (stockage dans ce navigateur).
@@ -110,12 +131,13 @@
         <div class="top-left">
           <div class="chip" id="current-user-chip">
             Connecté en tant que <strong id="current-username"></strong>
+            <span class="role-pill" id="current-role"></span>
           </div>
           <div class="project-bar">
             <label for="chantier-select">Chantier actif :</label>
             <select id="chantier-select"></select>
-            <button class="btn btn-ghost" id="btn-new-chantier">Nouveau chantier</button>
-            <button class="btn btn-ghost btn-danger-soft" id="btn-delete-chantier">
+            <button class="btn btn-ghost" id="btn-new-chantier" data-requires-admin="true">Nouveau chantier</button>
+            <button class="btn btn-ghost btn-danger-soft" id="btn-delete-chantier" data-requires-admin="true">
               Supprimer ce chantier
             </button>
             <span id="chantier-lock-chip" class="chip chip-danger hidden">
@@ -180,7 +202,7 @@
                   <input id="budget-note" type="text" placeholder="Ex. Budget donateur, phase 1" />
                 </div>
               </div>
-              <button type="submit" class="btn btn-accent">
+              <button type="submit" class="btn btn-accent" data-requires-admin="true">
                 Mettre à jour le budget de référence
               </button>
             </form>
@@ -325,7 +347,7 @@
                   </div>
                 </div>
 
-                <button type="submit" class="btn btn-accent">
+                <button type="submit" class="btn btn-accent" data-requires-admin="true">
                   Enregistrer le matériau
                 </button>
                 <div class="hint">
@@ -389,7 +411,7 @@
                     <input id="ouvrier-date" type="date" required />
                   </div>
                 </div>
-                <button type="submit" class="btn btn-accent">
+                <button type="submit" class="btn btn-accent" data-requires-admin="true">
                   Ajouter l’ouvrier
                 </button>
                 <div class="hint">
@@ -460,7 +482,7 @@
                   <input id="transaction-note" type="text" placeholder="Ex. 1ère tranche maçon, acompte fournisseur…" />
                 </div>
               </div>
-              <button type="submit" class="btn btn-accent">
+              <button type="submit" class="btn btn-accent" data-requires-admin="true">
                 Enregistrer la transaction
               </button>
               <div class="hint">
@@ -660,7 +682,7 @@
                 <label for="custom-categories">Catégories / travaux proposés</label>
                 <textarea id="custom-categories" rows="3" placeholder="Ex. Maçonnerie\nTerrassement\nFinitions"></textarea>
               </div>
-              <button type="submit" class="btn btn-ghost" style="margin-top:10px;">Mettre à jour les listes</button>
+              <button type="submit" class="btn btn-ghost" style="margin-top:10px;" data-requires-admin="true">Mettre à jour les listes</button>
               <div class="hint" style="margin-top:6px;">
                 Les listes restent toujours modifiables : les entrées sont ajoutées aux valeurs de base et aux éléments déjà enregistrés.
               </div>

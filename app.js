@@ -152,6 +152,27 @@ function isValidPastOrToday(dateStr){
   today.setHours(0,0,0,0);
   return d <= today;
 }
+async function hashPassword(password){
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function verifyPassword(userRecord, candidate){
+  if(!userRecord) return false;
+  if(userRecord.passwordHash){
+    const candidateHash = await hashPassword(candidate);
+    return candidateHash === userRecord.passwordHash;
+  }
+  return userRecord.password === candidate;
+}
+function validatePasswordComplexity(pwd){
+  if(!pwd || pwd.length < 8) return false;
+  const hasLetter = /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(pwd);
+  const hasNumber = /[0-9]/.test(pwd);
+  return hasLetter && hasNumber;
+}
 
 /**********************
  * Stockage local
@@ -159,6 +180,8 @@ function isValidPastOrToday(dateStr){
 const LS_USERS_KEY = "chantierApp_users";
 const LS_CURRENT_USER_KEY = "chantierApp_currentUser";
 const LS_DATA_PREFIX = "chantierApp_data_";
+const ROLE_ADMIN = "admin";
+const ROLE_VISITOR = "visitor";
 
 function ensureCustomLists(target){
   if(!target.customLists) target.customLists = { materiaux:[], metiers:[], categories:[] };
@@ -270,6 +293,7 @@ let currentUser = null;
 let currentUserData = null;
 let currentData = null;
 let currentMainView = "dashboard";
+let currentUserRole = ROLE_ADMIN;
 
 function addLog(message){
   if(!currentUserData) return;
@@ -295,12 +319,19 @@ const appView  = document.getElementById("app-view");
 const authForm = document.getElementById("auth-form");
 const authUsernameInput = document.getElementById("auth-username");
 const authPasswordInput = document.getElementById("auth-password");
+const authPasswordConfirmInput = document.getElementById("auth-password-confirm");
+const authPasswordConfirmField = document.getElementById("auth-password-confirm-field");
+const authRoleSelect = document.getElementById("auth-role");
+const authRoleField = document.getElementById("auth-role-field");
+const togglePasswordBtn = document.getElementById("toggle-password-visibility");
+const togglePasswordConfirmBtn = document.getElementById("toggle-password-confirm-visibility");
 const authTitle = document.getElementById("auth-title");
 const authSubtitle = document.getElementById("auth-subtitle");
 const authSubmitBtn = document.getElementById("auth-submit-btn");
 const authToggleText = document.getElementById("auth-toggle-text");
 
 const currentUsernameSpan = document.getElementById("current-username");
+const currentRoleSpan = document.getElementById("current-role");
 const logoutBtn = document.getElementById("logout-btn");
 
 const chantierSelect = document.getElementById("chantier-select");
@@ -409,6 +440,34 @@ let invOuvChart = null;
 
 let authMode = "login";
 
+function getCurrentPermissions(){
+  return currentUserRole === ROLE_VISITOR
+    ? { canEdit:false, canManageChantier:false }
+    : { canEdit:true, canManageChantier:true };
+}
+function requireAdmin(actionLabel){
+  if(currentUserRole !== ROLE_ADMIN){
+    const message = actionLabel ? `${actionLabel} est réservée à un administrateur.` : "Action réservée à un administrateur.";
+    alert(message);
+    return false;
+  }
+  return true;
+}
+function applyRoleContext(){
+  const roleLabel = currentUserRole === ROLE_VISITOR ? "Visiteur" : "Administrateur";
+  if(currentRoleSpan){
+    currentRoleSpan.textContent = roleLabel;
+  }
+  document.body.classList.toggle("role-visitor", currentUserRole === ROLE_VISITOR);
+  applyPermissionLocks();
+}
+function applyPermissionLocks(){
+  const perms = getCurrentPermissions();
+  document.querySelectorAll("[data-requires-admin]").forEach(el=>{
+    el.disabled = !perms.canEdit;
+  });
+}
+
 /**********************
  * Multi-chantiers
  **********************/
@@ -500,11 +559,15 @@ function setAuthMode(mode){
     authSubtitle.textContent = "Saisissez vos identifiants pour accéder à votre tableau de bord.";
     authSubmitBtn.textContent = "Se connecter";
     authToggleText.innerHTML = 'Pas encore de compte ? <button type="button" id="toggle-auth-mode">Créer un compte</button>';
+    authPasswordConfirmField.classList.add("hidden");
+    authRoleField.classList.add("hidden");
   }else{
     authTitle.textContent = "Création d’un compte chantier";
     authSubtitle.textContent = "Définissez un identifiant et un mot de passe pour cet espace.";
     authSubmitBtn.textContent = "Créer le compte";
     authToggleText.innerHTML = 'Déjà un compte ? <button type="button" id="toggle-auth-mode">Se connecter</button>';
+    authPasswordConfirmField.classList.remove("hidden");
+    authRoleField.classList.remove("hidden");
   }
   const toggleBtn = document.getElementById("toggle-auth-mode");
   toggleBtn.addEventListener("click", ()=> setAuthMode(authMode==="login" ? "register" : "login"));
@@ -518,6 +581,7 @@ function showApp(){
   authView.classList.remove("active");
   appView.classList.add("active");
   currentUsernameSpan.textContent = currentUser || "";
+  applyRoleContext();
   applyTheme();
   renderChantiersUI();
   renderSettingsView();
@@ -525,7 +589,22 @@ function showApp(){
   updateMainView();
 }
 
-authForm.addEventListener("submit",(e)=>{
+function setupPasswordToggle(input, btn){
+  if(!input || !btn) return;
+  btn.addEventListener("click", ()=>{
+    const currentlyHidden = input.type === "password";
+    input.type = currentlyHidden ? "text" : "password";
+    btn.textContent = currentlyHidden ? "Masquer" : "Afficher";
+    if(currentlyHidden){
+      setTimeout(()=>{
+        input.type = "password";
+        btn.textContent = "Afficher";
+      }, 5000);
+    }
+  });
+}
+
+authForm.addEventListener("submit",async (e)=>{
   e.preventDefault();
   const username = authUsernameInput.value.trim();
   const password = authPasswordInput.value;
@@ -536,36 +615,54 @@ authForm.addEventListener("submit",(e)=>{
   let users = loadUsers();
 
   if(authMode === "register"){
+    const confirm = authPasswordConfirmInput.value;
+    if(password !== confirm){
+      alert("La confirmation du mot de passe ne correspond pas.");
+      return;
+    }
+    if(!validatePasswordComplexity(password)){
+      alert("Mot de passe trop simple. Merci d’utiliser au moins 8 caractères incluant lettres et chiffres.");
+      return;
+    }
     if(users.some(u=>u.username === username)){
       alert("Cet identifiant est déjà utilisé.");
       return;
     }
-    users.push({username,password,avatarDataUrl:null});
+    const passwordHash = await hashPassword(password);
+    const role = (authRoleSelect && authRoleSelect.value === ROLE_VISITOR) ? ROLE_VISITOR : ROLE_ADMIN;
+    users.push({username,passwordHash,role,avatarDataUrl:null});
     saveUsers(users);
     setCurrentUsername(username);
     currentUser = username;
+    currentUserRole = role;
     currentUserData = loadUserData(username);
+    currentUserData.role = role;
     ensureAtLeastOneChantier();
     currentData = currentUserData.chantiers[currentUserData.chantierActif];
     saveUserData(currentUser,currentUserData);
     addLog("Création du compte chantier.");
+    applyRoleContext();
     showApp();
   }else{
-    const found = users.find(u=>u.username===username && u.password===password);
-    if(!found){
+    const found = users.find(u=>u.username===username);
+    if(!found || !(await verifyPassword(found,password))){
       alert("Identifiant ou mot de passe incorrect.");
       return;
     }
     setCurrentUsername(username);
     currentUser = username;
+    currentUserRole = found.role || ROLE_ADMIN;
     currentUserData = loadUserData(username);
+    currentUserData.role = currentUserRole;
     ensureAtLeastOneChantier();
     currentData = currentUserData.chantiers[currentUserData.chantierActif];
     saveUserData(currentUser,currentUserData);
     addLog("Connexion au compte chantier.");
+    applyRoleContext();
     showApp();
   }
   authPasswordInput.value = "";
+  if(authPasswordConfirmInput) authPasswordConfirmInput.value = "";
 });
 
 logoutBtn.addEventListener("click", ()=>{
@@ -685,6 +782,7 @@ function renderBudgetStats(){
 budgetForm.addEventListener("submit",(e)=>{
   e.preventDefault();
   if(!currentUser || !currentUserData || !currentData) return;
+  if(!requireAdmin("La mise à jour du budget")) return;
   if(currentData.verrouille){
     alert("Ce chantier est verrouillé. Veuillez le déverrouiller dans les paramètres pour le modifier.");
     return;
@@ -708,6 +806,7 @@ budgetForm.addEventListener("submit",(e)=>{
  **********************/
 function supprimerMateriau(id){
   if(!currentUser || !currentUserData || !currentData) return;
+  if(!requireAdmin("La suppression de matériau")) return;
   if(currentData.verrouille){
     alert("Ce chantier est verrouillé. Impossible de modifier les matériaux.");
     return;
@@ -821,6 +920,7 @@ function renderMateriaux(){
 materiauForm.addEventListener("submit",(e)=>{
   e.preventDefault();
   if(!currentUser || !currentUserData || !currentData) return;
+  if(!requireAdmin("La création de matériaux")) return;
   if(currentData.verrouille){
     alert("Ce chantier est verrouillé. Impossible d’ajouter ou de modifier les matériaux.");
     return;
@@ -889,6 +989,7 @@ materiauForm.addEventListener("submit",(e)=>{
  **********************/
 function supprimerOuvrier(id){
   if(!currentUser || !currentUserData || !currentData) return;
+  if(!requireAdmin("La suppression d’un ouvrier")) return;
   if(currentData.verrouille){
     alert("Ce chantier est verrouillé. Impossible de modifier les ouvriers.");
     return;
@@ -996,6 +1097,7 @@ function renderOuvriers(){
 ouvrierForm.addEventListener("submit",(e)=>{
   e.preventDefault();
   if(!currentUser || !currentUserData || !currentData) return;
+  if(!requireAdmin("L’enregistrement d’un ouvrier")) return;
   if(currentData.verrouille){
     alert("Ce chantier est verrouillé. Impossible d’ajouter ou de modifier les ouvriers.");
     return;
@@ -1057,6 +1159,7 @@ transactionTypeSelect.addEventListener("change",()=>{
 transactionForm.addEventListener("submit",(e)=>{
   e.preventDefault();
   if(!currentUser || !currentUserData || !currentData) return;
+  if(!requireAdmin("L’enregistrement d’une transaction")) return;
   if(currentData.verrouille){
     alert("Ce chantier est verrouillé. Impossible d’enregistrer des transactions.");
     return;
@@ -1379,7 +1482,7 @@ avatarInput.addEventListener("change",(e)=>{
   };
   reader.readAsDataURL(file);
 });
-formChangeUsername.addEventListener("submit",(e)=>{
+formChangeUsername.addEventListener("submit",async (e)=>{
   e.preventDefault();
   if(!currentUser) return;
   const newUsername = newUsernameInput.value.trim();
@@ -1394,7 +1497,7 @@ formChangeUsername.addEventListener("submit",(e)=>{
   }
   const users = loadUsers();
   const me = users.find(u=>u.username===currentUser);
-  if(!me || me.password !== password){
+  if(!me || !(await verifyPassword(me,password))){
     alert("Mot de passe incorrect.");
     return;
   }
@@ -1422,7 +1525,7 @@ formChangeUsername.addEventListener("submit",(e)=>{
   addLog(`Changement d’identifiant : « ${currentUser} ».`);
   alert("Identifiant modifié avec succès.");
 });
-formChangePassword.addEventListener("submit",(e)=>{
+formChangePassword.addEventListener("submit",async (e)=>{
   e.preventDefault();
   if(!currentUser) return;
   const oldPwd = oldPasswordInput.value;
@@ -1436,13 +1539,19 @@ formChangePassword.addEventListener("submit",(e)=>{
     alert("La confirmation ne correspond pas au nouveau mot de passe.");
     return;
   }
+  if(!validatePasswordComplexity(newPwd)){
+    alert("Nouveau mot de passe trop simple. Merci d’utiliser au moins 8 caractères incluant lettres et chiffres.");
+    return;
+  }
   const users = loadUsers();
   const idx = users.findIndex(u=>u.username===currentUser);
-  if(idx === -1 || users[idx].password !== oldPwd){
+  const userRecord = users[idx];
+  if(idx === -1 || !(await verifyPassword(userRecord,oldPwd))){
     alert("Ancien mot de passe incorrect.");
     return;
   }
-  users[idx].password = newPwd;
+  users[idx].passwordHash = await hashPassword(newPwd);
+  delete users[idx].password;
   saveUsers(users);
   oldPasswordInput.value = "";
   newPasswordInput.value = "";
@@ -1455,6 +1564,7 @@ if(customListsForm){
   customListsForm.addEventListener("submit",(e)=>{
     e.preventDefault();
     if(!currentUserData) return;
+    if(!requireAdmin("La mise à jour des listes personnalisées")) return;
     const materiaux = normalizeListInput(customMaterialsTextarea.value);
     const metiers = normalizeListInput(customMetiersTextarea.value);
     const categories = normalizeListInput(customCategoriesTextarea.value);
@@ -1612,16 +1722,17 @@ function renderSettingsChantiers(){
   });
 
   settingsChantiersList.querySelectorAll(".action-delete").forEach(btn=>{
-    btn.addEventListener("click",()=>{
+    btn.addEventListener("click",async ()=>{
       const id = btn.getAttribute("data-id");
-      supprimerChantierParId(id);
+      await supprimerChantierParId(id);
       renderSettingsChantiers();
     });
   });
 }
 
-function supprimerChantierParId(chantierId){
+async function supprimerChantierParId(chantierId){
   if(!currentUser || !currentUserData || !currentUserData.chantiers[chantierId]) return;
+  if(!requireAdmin("La suppression d’un chantier")) return;
   const c = currentUserData.chantiers[chantierId];
   const nomChantier = c.nom || "chantier sans nom";
 
@@ -1632,8 +1743,9 @@ function supprimerChantierParId(chantierId){
   if(pwd == null) return;
 
   const users = loadUsers();
-  const userRec = users.find(u=>u.username===currentUser && u.password===pwd);
-  if(!userRec){
+  const userRec = users.find(u=>u.username===currentUser);
+  const passwordOk = await verifyPassword(userRec,pwd);
+  if(!passwordOk){
     alert("Mot de passe incorrect. Suppression annulée.");
     return;
   }
@@ -1675,6 +1787,7 @@ function supprimerChantierParId(chantierId){
 
 btnNewChantier.addEventListener("click",()=>{
   if(!currentUser || !currentUserData) return;
+  if(!requireAdmin("La création d’un nouveau chantier")) return;
   const count = Object.keys(currentUserData.chantiers || {}).length;
   const defaultName = "Chantier " + (count+1);
   const name = prompt("Nom du nouveau chantier :", defaultName);
@@ -1700,9 +1813,9 @@ btnNewChantier.addEventListener("click",()=>{
   renderAll();
   addLog(`Création d’un nouveau chantier « ${name.trim()} ».`);
 });
-btnDeleteChantier.addEventListener("click",()=>{
+btnDeleteChantier.addEventListener("click",async ()=>{
   if(!currentUserData || !currentUserData.chantierActif) return;
-  supprimerChantierParId(currentUserData.chantierActif);
+  await supprimerChantierParId(currentUserData.chantierActif);
 });
 chantierSelect.addEventListener("change",()=>{
   const id = chantierSelect.value;
@@ -2186,6 +2299,9 @@ function renderAll(){
   if(username){
     currentUser = username;
     currentUserData = loadUserData(username);
+    const record = getCurrentUserRecord();
+    currentUserRole = (record && record.role) ? record.role : (currentUserData.role || ROLE_ADMIN);
+    currentUserData.role = currentUserRole;
     ensureAtLeastOneChantier();
     currentData = currentUserData.chantiers[currentUserData.chantierActif];
     saveUserData(currentUser,currentUserData);
@@ -2196,4 +2312,11 @@ function renderAll(){
   setAuthMode("login");
   currentMainView = "dashboard";
   updateMainView();
+  setupPasswordToggle(authPasswordInput, togglePasswordBtn);
+  setupPasswordToggle(authPasswordConfirmInput, togglePasswordConfirmBtn);
+  window.addEventListener("beforeunload", ()=>{
+    if(currentUser){
+      setCurrentUsername(null);
+    }
+  });
 })();
