@@ -7,6 +7,7 @@ const BASE_MATERIAL_NAMES = [
   "Ciment",
   "Sable",
   "Gravier",
+  "Eau",
   "Fer à béton",
   "Parpaing",
   "Brique",
@@ -22,7 +23,11 @@ const BASE_MATERIAL_NAMES = [
   "Plâtre",
   "Clous / Vis",
   "Treillis soudé",
-  "Tasseaux"
+  "Tasseaux",
+  "Béton prêt à l'emploi",
+  "Agrégats",
+  "Gravillons",
+  "Bâches"
 ];
 
 const BASE_MATERIAL_CATEGORIES = [
@@ -33,7 +38,10 @@ const BASE_MATERIAL_CATEGORIES = [
   "Menuiserie",
   "Ferraillage",
   "Badigeonnage",
-  "Carrelage"
+  "Carrelage",
+  "Terrassement",
+  "Fondations",
+  "Finitions"
 ];
 
 const BASE_METIERS = [
@@ -45,7 +53,9 @@ const BASE_METIERS = [
   "Carreleur",
   "Menuisier",
   "Ferrailleur",
-  "Ouvrier"
+  "Ouvrier",
+  "Terrassier",
+  "Chef de chantier"
 ];
 
 /**********************
@@ -56,7 +66,9 @@ const CORRECTIONS_MATERIAUX = {
   "sable ": "Sable",
   "gravir": "Gravier",
   "gravier ": "Gravier",
+  "gravillon": "Gravillons",
   "ciment ": "Ciment",
+  "eua": "Eau",
   "fer a beton": "Fer à béton",
   "fer a béton": "Fer à béton",
   "tole": "Tôle / Zinc",
@@ -110,6 +122,15 @@ function formatAmount(v){
   if(!Number.isFinite(v)) return "0 FCFA";
   return v.toLocaleString("fr-FR",{maximumFractionDigits:0}) + " FCFA";
 }
+function normalizeListInput(value){
+  if(!value) return [];
+  return Array.from(new Set(
+    value
+      .split(/[,\n;]/)
+      .map(v=>v.trim())
+      .filter(Boolean)
+  ));
+}
 function todayISO(){
   const d = new Date();
   const y = d.getFullYear();
@@ -139,6 +160,21 @@ const LS_USERS_KEY = "chantierApp_users";
 const LS_CURRENT_USER_KEY = "chantierApp_currentUser";
 const LS_DATA_PREFIX = "chantierApp_data_";
 
+function ensureCustomLists(target){
+  if(!target.customLists) target.customLists = { materiaux:[], metiers:[], categories:[] };
+  ["materiaux","metiers","categories"].forEach(key=>{
+    if(!Array.isArray(target.customLists[key])) target.customLists[key] = [];
+    target.customLists[key] = target.customLists[key]
+      .map(v => typeof v === "string" ? v.trim() : "")
+      .filter(Boolean);
+  });
+}
+function getCustomList(key){
+  if(!currentUserData || !currentUserData.customLists) return [];
+  const arr = currentUserData.customLists[key];
+  return Array.isArray(arr) ? arr : [];
+}
+
 function loadUsers(){
   try{
     const raw = localStorage.getItem(LS_USERS_KEY);
@@ -164,9 +200,11 @@ function loadUserData(username){
   try{
     const raw = localStorage.getItem(key);
     if(!raw){
-      return { chantiers:{}, chantierActif:null, theme:"dark", logs:[] };
+      return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] } };
     }
     const parsed = JSON.parse(raw);
+
+    ensureCustomLists(parsed);
 
     // Migration ancien format éventuel
     if(parsed && !parsed.chantiers){
@@ -194,7 +232,8 @@ function loadUserData(username){
         chantiers: { [id]: chantier },
         chantierActif: id,
         theme: parsed.theme || "dark",
-        logs: parsed.logs || []
+        logs: parsed.logs || [],
+        customLists: parsed.customLists || { materiaux:[], metiers:[], categories:[] }
       };
     }
 
@@ -202,6 +241,7 @@ function loadUserData(username){
     if(typeof parsed.chantierActif === "undefined") parsed.chantierActif = null;
     if(!parsed.theme) parsed.theme = "dark";
     if(!Array.isArray(parsed.logs)) parsed.logs = [];
+    ensureCustomLists(parsed);
 
     Object.values(parsed.chantiers).forEach(c=>{
       if(typeof c.archive === "undefined") c.archive = false;
@@ -215,7 +255,7 @@ function loadUserData(username){
     return parsed;
   }catch(e){
     console.error("Erreur lecture données:", e);
-    return { chantiers:{}, chantierActif:null, theme:"dark", logs:[] };
+    return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] } };
   }
 }
 function saveUserData(username,data){
@@ -351,6 +391,10 @@ const settingsChantiersList = document.getElementById("settings-chantiers-list")
 const btnExportAllPDF = document.getElementById("btn-export-all-pdf");
 const btnExportAllZIP = document.getElementById("btn-export-all-zip");
 const logsList = document.getElementById("logs-list");
+const customListsForm = document.getElementById("custom-lists-form");
+const customMaterialsTextarea = document.getElementById("custom-materials");
+const customMetiersTextarea = document.getElementById("custom-metiers");
+const customCategoriesTextarea = document.getElementById("custom-categories");
 
 const invTotalMatSpan = document.getElementById("inv-total-mat");
 const invTotalOuvSpan = document.getElementById("inv-total-ouv");
@@ -688,12 +732,12 @@ function renderMateriaux(){
   if(materiauCategorieDatalist) materiauCategorieDatalist.innerHTML = "";
   if(materiauNomDatalist) materiauNomDatalist.innerHTML = "";
 
+  const categoriesSet = new Set([...(BASE_MATERIAL_CATEGORIES || []), ...getCustomList("categories")]);
+  const nomsSet = new Set([...(BASE_MATERIAL_NAMES || []), ...getCustomList("materiaux")]);
+
   if(!currentData || !currentData.materiaux.length){
     materiauxList.innerHTML = '<div class="hint">Aucun matériau enregistré pour le moment.</div>';
   }else{
-    const categoriesSet = new Set(BASE_MATERIAL_CATEGORIES);
-    const nomsSet = new Set(BASE_MATERIAL_NAMES);
-
     currentData.materiaux.forEach(m=>{
       if(m.categorie && m.categorie.trim()) categoriesSet.add(m.categorie.trim());
       if(m.nom && m.nom.trim()) nomsSet.add(m.nom.trim());
@@ -723,25 +767,25 @@ function renderMateriaux(){
       `;
       materiauxList.appendChild(row);
     });
+  }
 
-    if(materiauNomDatalist){
-      const fragmentNames = document.createDocumentFragment();
-      nomsSet.forEach(n=>{
-        const opt = document.createElement("option");
-        opt.value = n;
-        fragmentNames.appendChild(opt);
-      });
-      materiauNomDatalist.appendChild(fragmentNames);
-    }
-    if(materiauCategorieDatalist){
-      const fragmentCats = document.createDocumentFragment();
-      categoriesSet.forEach(cat=>{
-        const opt = document.createElement("option");
-        opt.value = cat;
-        fragmentCats.appendChild(opt);
-      });
-      materiauCategorieDatalist.appendChild(fragmentCats);
-    }
+  if(materiauNomDatalist){
+    const fragmentNames = document.createDocumentFragment();
+    nomsSet.forEach(n=>{
+      const opt = document.createElement("option");
+      opt.value = n;
+      fragmentNames.appendChild(opt);
+    });
+    materiauNomDatalist.appendChild(fragmentNames);
+  }
+  if(materiauCategorieDatalist){
+    const fragmentCats = document.createDocumentFragment();
+    categoriesSet.forEach(cat=>{
+      const opt = document.createElement("option");
+      opt.value = cat;
+      fragmentCats.appendChild(opt);
+    });
+    materiauCategorieDatalist.appendChild(fragmentCats);
   }
 
   transactionMateriauSelect.innerHTML = '<option value="">Sélectionner un matériau à crédit…</option>';
@@ -869,13 +913,11 @@ function renderOuvriers(){
   filterMetierSelect.innerHTML = '<option value="">Tous les métiers</option>';
   if(ouvrierMetierDatalist) ouvrierMetierDatalist.innerHTML = "";
 
+  const metiersSet = new Set([...(BASE_METIERS || []), ...getCustomList("metiers")]);
+
   if(!currentData){
     ouvriersList.innerHTML = '<div class="hint">Aucun ouvrier enregistré pour le moment.</div>';
-    return;
-  }
-  const metiersSet = new Set(BASE_METIERS);
-
-  if(!currentData.ouvriers.length){
+  }else if(!currentData.ouvriers.length){
     ouvriersList.innerHTML = '<div class="hint">Aucun ouvrier enregistré pour le moment.</div>';
   }else{
     const filtreMetier = filterMetierSelect.value || "";
@@ -1409,6 +1451,24 @@ formChangePassword.addEventListener("submit",(e)=>{
   alert("Mot de passe mis à jour avec succès.");
 });
 
+if(customListsForm){
+  customListsForm.addEventListener("submit",(e)=>{
+    e.preventDefault();
+    if(!currentUserData) return;
+    const materiaux = normalizeListInput(customMaterialsTextarea.value);
+    const metiers = normalizeListInput(customMetiersTextarea.value);
+    const categories = normalizeListInput(customCategoriesTextarea.value);
+
+    currentUserData.customLists = { materiaux, metiers, categories };
+    saveUserData(currentUser,currentUserData);
+    renderMateriaux();
+    renderOuvriers();
+    renderCustomLists();
+    addLog("Mise à jour des listes personnalisées (matériaux, métiers, catégories).");
+    alert("Listes personnalisées mises à jour.");
+  });
+}
+
 /**********************
  * Paramètres chantiers
  **********************/
@@ -1684,8 +1744,17 @@ function renderSettingsView(){
   }else{
     avatarPreview.style.backgroundImage = "";
   }
+  renderCustomLists();
   renderSettingsChantiers();
   renderLogs();
+}
+
+function renderCustomLists(){
+  if(!currentUserData || !customListsForm) return;
+  ensureCustomLists(currentUserData);
+  customMaterialsTextarea.value = (currentUserData.customLists.materiaux || []).join("\n");
+  customMetiersTextarea.value = (currentUserData.customLists.metiers || []).join("\n");
+  customCategoriesTextarea.value = (currentUserData.customLists.categories || []).join("\n");
 }
 
 /**********************
