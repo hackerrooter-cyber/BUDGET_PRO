@@ -20,6 +20,7 @@ Application web de gestion de chantier avec authentification locale, désormais 
 - Les données (utilisateurs, chantiers, paramètres) sont sauvegardées dans un fichier JSON local lorsque l'application tourne dans Electron.
 - Le fichier se trouve dans le dossier `userData` du système (ex. `C:\\Users\\<vous>\\AppData\\Roaming\\budget-pro\\budget_pro_data.json` sous Windows).
 - En mode navigateur pur, le stockage reste dans le `localStorage` classique du navigateur.
+- L'écran d'authentification affiche automatiquement le mode de stockage actif et, en mode Electron, le chemin complet du fichier sauvegardé.
 
 ## Générer un installateur Windows (.exe)
 

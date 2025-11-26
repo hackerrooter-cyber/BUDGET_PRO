@@ -367,6 +367,7 @@ const authRoleField = document.getElementById("auth-role-field");
 const authRegisterGuardField = document.getElementById("auth-register-guard-field");
 const authRegisterGuardInput = document.getElementById("auth-register-guard");
 const authRegisterGuardHint = document.getElementById("auth-register-guard-hint");
+const storageModeHint = document.getElementById("storage-mode-hint");
 const togglePasswordBtn = document.getElementById("toggle-password-visibility");
 const togglePasswordConfirmBtn = document.getElementById("toggle-password-confirm-visibility");
 const authTitle = document.getElementById("auth-title");
@@ -377,6 +378,23 @@ const authToggleText = document.getElementById("auth-toggle-text");
 const currentUsernameSpan = document.getElementById("current-username");
 const currentRoleSpan = document.getElementById("current-role");
 const logoutBtn = document.getElementById("logout-btn");
+
+function updateStorageModeHint(){
+  if(!storageModeHint) return;
+  try{
+    const hasNative = typeof window.nativeStorage !== "undefined";
+    if(hasNative && typeof storage.storagePath === "function"){
+      const path = storage.storagePath();
+      storageModeHint.textContent = path
+        ? `Données enregistrées dans un fichier local sécurisé : ${path}`
+        : "Données enregistrées en local sur cet ordinateur (mode Electron).";
+      return;
+    }
+  }catch(err){
+    console.error("Impossible d'afficher l'emplacement du stockage", err);
+  }
+  storageModeHint.textContent = "Données enregistrées dans le stockage local du navigateur.";
+}
 
 const chantierSelect = document.getElementById("chantier-select");
 const btnNewChantier = document.getElementById("btn-new-chantier");
@@ -2532,6 +2550,8 @@ function renderAll(){
   autoCorrectInput(materiauNomInput, CORRECTIONS_MATERIAUX);
   autoCorrectInput(materiauCategorieInput, CORRECTIONS_CATEGORIES);
   autoCorrectInput(ouvrierMetierInput, CORRECTIONS_METIERS);
+
+  updateStorageModeHint();
 
   const username = getCurrentUsername();
   if(username){
