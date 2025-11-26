@@ -194,6 +194,7 @@ function validatePasswordComplexity(pwd){
 /**********************
  * Stockage local
  **********************/
+const storage = window.nativeStorage || window.localStorage;
 const LS_USERS_KEY = "chantierApp_users";
 const LS_CURRENT_USER_KEY = "chantierApp_currentUser";
 const LS_DATA_PREFIX = "chantierApp_data_";
@@ -218,7 +219,7 @@ function getCustomList(key){
 
 function loadUsers(){
   try{
-    const raw = localStorage.getItem(LS_USERS_KEY);
+    const raw = storage.getItem(LS_USERS_KEY);
     return raw ? JSON.parse(raw) : [];
   }catch(e){
     console.error("Erreur lecture utilisateurs:", e);
@@ -226,7 +227,7 @@ function loadUsers(){
   }
 }
 function saveUsers(list){
-  localStorage.setItem(LS_USERS_KEY, JSON.stringify(list));
+  storage.setItem(LS_USERS_KEY, JSON.stringify(list));
 }
 function hasAdminAccount(users){
   const list = Array.isArray(users) ? users : loadUsers();
@@ -234,30 +235,30 @@ function hasAdminAccount(users){
 }
 function loadRegisterGuardHash(){
   try{
-    return localStorage.getItem(LS_REGISTER_GUARD_KEY);
+    return storage.getItem(LS_REGISTER_GUARD_KEY);
   }catch(e){
     console.error("Erreur lecture mot de passe de création", e);
     return null;
   }
 }
 function saveRegisterGuardHash(hash){
-  localStorage.setItem(LS_REGISTER_GUARD_KEY, hash);
+  storage.setItem(LS_REGISTER_GUARD_KEY, hash);
 }
 function clearRegisterGuardHash(){
-  localStorage.removeItem(LS_REGISTER_GUARD_KEY);
+  storage.removeItem(LS_REGISTER_GUARD_KEY);
 }
 function getCurrentUsername(){
-  return localStorage.getItem(LS_CURRENT_USER_KEY);
+  return storage.getItem(LS_CURRENT_USER_KEY);
 }
 function setCurrentUsername(name){
-  if(name) localStorage.setItem(LS_CURRENT_USER_KEY, name);
-  else localStorage.removeItem(LS_CURRENT_USER_KEY);
+  if(name) storage.setItem(LS_CURRENT_USER_KEY, name);
+  else storage.removeItem(LS_CURRENT_USER_KEY);
 }
 
 function loadUserData(username){
   const key = LS_DATA_PREFIX + username;
   try{
-    const raw = localStorage.getItem(key);
+    const raw = storage.getItem(key);
     if(!raw){
       return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] }, sarRate:null, sarRateUpdatedAt:null };
     }
@@ -274,6 +275,7 @@ function loadUserData(username){
           nom: "Chantier 1",
           budgetInitial: 0,
           budgetNote: "",
+          budgetInitialRecordedAt: null,
           materiaux: [],
           ouvriers: [],
           transactions: [],
@@ -310,6 +312,11 @@ function loadUserData(username){
       if(typeof c.archive === "undefined") c.archive = false;
       if(typeof c.verrouille === "undefined") c.verrouille = false;
       if(typeof c.defaut === "undefined") c.defaut = false;
+      if(typeof c.budgetInitialRecordedAt === "undefined"){
+        const hasInitialBudget = Number.isFinite(c.budgetInitial) && c.budgetInitial > 0;
+        const hasInitialNote = !!(c.budgetNote && String(c.budgetNote).trim());
+        c.budgetInitialRecordedAt = (hasInitialBudget || hasInitialNote) ? new Date().toISOString() : null;
+      }
       (c.materiaux || []).forEach(m=>{
         if(typeof m.quantite === "undefined") m.quantite = 1;
         if(typeof m.categorie === "undefined") m.categorie = "";
@@ -323,7 +330,7 @@ function loadUserData(username){
 }
 function saveUserData(username,data){
   const key = LS_DATA_PREFIX + username;
-  localStorage.setItem(key, JSON.stringify(data));
+  storage.setItem(key, JSON.stringify(data));
 }
 
 /**********************
@@ -366,6 +373,7 @@ const authRoleField = document.getElementById("auth-role-field");
 const authRegisterGuardField = document.getElementById("auth-register-guard-field");
 const authRegisterGuardInput = document.getElementById("auth-register-guard");
 const authRegisterGuardHint = document.getElementById("auth-register-guard-hint");
+const storageModeHint = document.getElementById("storage-mode-hint");
 const togglePasswordBtn = document.getElementById("toggle-password-visibility");
 const togglePasswordConfirmBtn = document.getElementById("toggle-password-confirm-visibility");
 const authTitle = document.getElementById("auth-title");
@@ -376,6 +384,23 @@ const authToggleText = document.getElementById("auth-toggle-text");
 const currentUsernameSpan = document.getElementById("current-username");
 const currentRoleSpan = document.getElementById("current-role");
 const logoutBtn = document.getElementById("logout-btn");
+
+function updateStorageModeHint(){
+  if(!storageModeHint) return;
+  try{
+    const hasNative = typeof window.nativeStorage !== "undefined";
+    if(hasNative && typeof storage.storagePath === "function"){
+      const path = storage.storagePath();
+      storageModeHint.textContent = path
+        ? `Données enregistrées dans un fichier local sécurisé : ${path}`
+        : "Données enregistrées en local sur cet ordinateur (mode Electron).";
+      return;
+    }
+  }catch(err){
+    console.error("Impossible d'afficher l'emplacement du stockage", err);
+  }
+  storageModeHint.textContent = "Données enregistrées dans le stockage local du navigateur.";
+}
 
 const chantierSelect = document.getElementById("chantier-select");
 const btnNewChantier = document.getElementById("btn-new-chantier");
@@ -510,6 +535,26 @@ function requireAdmin(actionLabel){
   }
   return true;
 }
+async function confirmWithAccountPassword(reason){
+  if(!currentUser){
+    alert("Aucun utilisateur connecté. Veuillez vous reconnecter.");
+    return false;
+  }
+  const record = getCurrentUserRecord();
+  if(!record){
+    alert("Impossible de vérifier le mot de passe du compte actif.");
+    return false;
+  }
+  const promptLabel = reason || "Saisissez le mot de passe du compte pour confirmer.";
+  const pwd = prompt(promptLabel);
+  if(pwd == null) return false;
+  const ok = await verifyPassword(record, pwd);
+  if(!ok){
+    alert("Mot de passe incorrect. Action annulée.");
+    return false;
+  }
+  return true;
+}
 function applyRoleContext(){
   const roleLabel = currentUserRole === ROLE_VISITOR ? "Visiteur" : "Administrateur";
   if(currentRoleSpan){
@@ -546,6 +591,7 @@ function ensureAtLeastOneChantier(){
       nom: name.trim(),
       budgetInitial: 0,
       budgetNote: "",
+      budgetInitialRecordedAt: null,
       materiaux: [],
       ouvriers: [],
       transactions: [],
@@ -563,6 +609,7 @@ function ensureAtLeastOneChantier(){
       nom: name.trim(),
       budgetInitial: 0,
       budgetNote: "",
+      budgetInitialRecordedAt: null,
       materiaux: [],
       ouvriers: [],
       transactions: [],
@@ -910,7 +957,7 @@ function renderBudgetStats(){
   budgetInitialInput.value = currentData.budgetInitial || "";
   budgetNoteInput.value = currentData.budgetNote || "";
 }
-budgetForm.addEventListener("submit",(e)=>{
+budgetForm.addEventListener("submit",async (e)=>{
   e.preventDefault();
   if(!currentUser || !currentUserData || !currentData) return;
   if(!requireAdmin("La mise à jour du budget")) return;
@@ -923,8 +970,16 @@ budgetForm.addEventListener("submit",(e)=>{
     alert("Veuillez saisir un budget initial valide (montant positif).");
     return;
   }
+  const alreadyRecorded = !!currentData.budgetInitialRecordedAt;
+  if(alreadyRecorded){
+    const authorized = await confirmWithAccountPassword("Saisissez le mot de passe du compte pour modifier le budget initial ou la note interne.");
+    if(!authorized) return;
+  }
   currentData.budgetInitial = val;
   currentData.budgetNote = budgetNoteInput.value.trim();
+  if(!currentData.budgetInitialRecordedAt){
+    currentData.budgetInitialRecordedAt = new Date().toISOString();
+  }
   saveUserData(currentUser,currentUserData);
   renderBudgetStats();
   renderInventory();
@@ -1639,10 +1694,10 @@ formChangeUsername.addEventListener("submit",async (e)=>{
 
   const oldKey = LS_DATA_PREFIX + currentUser;
   const newKey = LS_DATA_PREFIX + newUsername;
-  const dataRaw = localStorage.getItem(oldKey);
+  const dataRaw = storage.getItem(oldKey);
   if(dataRaw != null){
-    localStorage.setItem(newKey,dataRaw);
-    localStorage.removeItem(oldKey);
+    storage.setItem(newKey,dataRaw);
+    storage.removeItem(oldKey);
   }
 
   me.username = newUsername;
@@ -1964,6 +2019,7 @@ async function supprimerChantierParId(chantierId){
       nom: defaultName.trim(),
       budgetInitial: 0,
       budgetNote: "",
+      budgetInitialRecordedAt: null,
       materiaux: [],
       ouvriers: [],
       transactions: [],
@@ -2000,6 +2056,7 @@ btnNewChantier.addEventListener("click",()=>{
     nom: name.trim(),
     budgetInitial: 0,
     budgetNote: "",
+    budgetInitialRecordedAt: null,
     materiaux: [],
     ouvriers: [],
     transactions: [],
@@ -2531,6 +2588,8 @@ function renderAll(){
   autoCorrectInput(materiauNomInput, CORRECTIONS_MATERIAUX);
   autoCorrectInput(materiauCategorieInput, CORRECTIONS_CATEGORIES);
   autoCorrectInput(ouvrierMetierInput, CORRECTIONS_METIERS);
+
+  updateStorageModeHint();
 
   const username = getCurrentUsername();
   if(username){

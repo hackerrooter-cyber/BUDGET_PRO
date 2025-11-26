@@ -29,7 +29,7 @@
       </div>
       <div class="pill">
         <span class="key">Local</span>
-        <span>Données enregistrées dans votre navigateur, par identifiant.</span>
+        <span>Données enregistrées en local sur cet appareil, par identifiant.</span>
       </div>
     </header>
 
@@ -102,8 +102,8 @@
                 Saisissez le mot de passe transmis par un administrateur pour créer un compte.
               </div>
             </div>
-            <div class="hint" style="margin-top:6px;">
-              L’authentification est purement locale (stockage dans ce navigateur).
+            <div class="hint" style="margin-top:6px;" id="storage-mode-hint">
+              L’authentification est purement locale (stockage sur cet appareil).
               À ne pas utiliser pour des données réellement sensibles.
             </div>
             <div class="auth-actions">
@@ -222,6 +222,10 @@
               <button type="submit" class="btn btn-accent" data-requires-admin="true">
                 Mettre à jour le budget de référence
               </button>
+              <div class="hint">
+                Après le premier enregistrement, toute nouvelle modification du budget ou de la note interne nécessite le mot
+                de passe du compte administrateur connecté.
+              </div>
             </form>
 
             <div class="stats-row">
