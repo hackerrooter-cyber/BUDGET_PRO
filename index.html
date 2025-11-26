@@ -166,9 +166,15 @@
       </div>
 
       <div class="insight-row">
-        <div class="insight-card">
+        <div class="insight-card budget-card">
           <div class="insight-label">Budget déclaré</div>
-          <div class="insight-value" id="kpi-budget-initial">0 FCFA</div>
+          <div class="insight-currency-stack">
+            <div class="insight-value" id="kpi-budget-initial">0 FCFA</div>
+            <div class="insight-sar-line">
+              <span class="insight-sar-amount" id="kpi-budget-initial-sar">Taux SAR à définir</span>
+              <span class="pill sar-rate-pill" id="sar-rate-chip">Taux SAR non défini</span>
+            </div>
+          </div>
           <div class="insight-meta">Référence actualisée pour le chantier.</div>
         </div>
         <div class="insight-card">
@@ -222,6 +228,11 @@
               <div class="stat">
                 <div class="stat-label">Budget initial déclaré</div>
                 <div class="stat-value" id="stat-budget-initial">0 FCFA</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Budget initial (SAR)</div>
+                <div class="stat-value" id="stat-budget-initial-sar">Définir un taux SAR</div>
+                <div class="stat-note" id="stat-sar-rate-note">Taux SAR non défini</div>
               </div>
               <div class="stat">
                 <div class="stat-label">Dépenses effectivement payées</div>
@@ -677,6 +688,36 @@
                   Ce mot de passe est requis pour activer le bouton « Créer un compte » et ne peut être défini que
                   par un administrateur existant.
                 </div>
+              </form>
+            </div>
+
+            <div class="settings-section">
+              <h3>Taux de change — Riyal saoudien (SAR)</h3>
+              <form id="sar-rate-form">
+                <div class="field-row">
+                  <div class="field">
+                    <label for="sar-rate">Taux en FCFA (1 SAR = n FCFA)</label>
+                    <input
+                      id="sar-rate"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Ex. 162.50"
+                      data-requires-admin="true"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="sar-rate-password">Mot de passe administrateur</label>
+                    <input
+                      id="sar-rate-password"
+                      type="password"
+                      placeholder="Requis pour modifier le taux"
+                      data-requires-admin="true"
+                    />
+                  </div>
+                </div>
+                <div class="hint" id="sar-rate-hint">Définissez le taux du jour pour afficher le budget en SAR.</div>
+                <button type="submit" class="btn btn-ghost" data-requires-admin="true">Mettre à jour le taux SAR</button>
               </form>
             </div>
 
