@@ -141,6 +141,23 @@ function todayISO(){
 function generateId(){
   return "id-" + Math.random().toString(36).slice(2,9) + "-" + Date.now().toString(36);
 }
+function getSarRate(){
+  if(!currentUserData) return null;
+  const rate = currentUserData.sarRate;
+  if(!Number.isFinite(rate) || rate <= 0) return null;
+  return rate;
+}
+function formatSarAmountFromXof(xofAmount){
+  const rate = getSarRate();
+  if(!rate) return "Taux SAR à définir";
+  const sarValue = (xofAmount || 0) / rate;
+  return `${sarValue.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} SAR`;
+}
+function formatSarRateDescription(){
+  const rate = getSarRate();
+  if(!rate) return "Taux SAR non défini";
+  return `1 SAR = ${rate.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} FCFA`;
+}
 function isValidPastOrToday(dateStr){
   if(!dateStr) return false;
   const d = new Date(dateStr);
@@ -242,7 +259,7 @@ function loadUserData(username){
   try{
     const raw = localStorage.getItem(key);
     if(!raw){
-      return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] } };
+      return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] }, sarRate:null, sarRateUpdatedAt:null };
     }
     const parsed = JSON.parse(raw);
 
@@ -275,7 +292,9 @@ function loadUserData(username){
         chantierActif: id,
         theme: parsed.theme || "dark",
         logs: parsed.logs || [],
-        customLists: parsed.customLists || { materiaux:[], metiers:[], categories:[] }
+        customLists: parsed.customLists || { materiaux:[], metiers:[], categories:[] },
+        sarRate: typeof parsed.sarRate === "number" ? parsed.sarRate : null,
+        sarRateUpdatedAt: parsed.sarRateUpdatedAt || null
       };
     }
 
@@ -283,6 +302,8 @@ function loadUserData(username){
     if(typeof parsed.chantierActif === "undefined") parsed.chantierActif = null;
     if(!parsed.theme) parsed.theme = "dark";
     if(!Array.isArray(parsed.logs)) parsed.logs = [];
+    if(typeof parsed.sarRate !== "number") parsed.sarRate = null;
+    if(!parsed.sarRateUpdatedAt) parsed.sarRateUpdatedAt = null;
     ensureCustomLists(parsed);
 
     Object.values(parsed.chantiers).forEach(c=>{
@@ -297,7 +318,7 @@ function loadUserData(username){
     return parsed;
   }catch(e){
     console.error("Erreur lecture données:", e);
-    return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] } };
+    return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] }, sarRate:null, sarRateUpdatedAt:null };
   }
 }
 function saveUserData(username,data){
@@ -374,7 +395,11 @@ const statBudgetInitial = document.getElementById("stat-budget-initial");
 const statDepenses = document.getElementById("stat-depenses");
 const statSolde = document.getElementById("stat-solde");
 const statDettes = document.getElementById("stat-dettes");
+const statBudgetInitialSar = document.getElementById("stat-budget-initial-sar");
+const statSarRateNote = document.getElementById("stat-sar-rate-note");
 const kpiBudgetInitial = document.getElementById("kpi-budget-initial");
+const kpiBudgetInitialSar = document.getElementById("kpi-budget-initial-sar");
+const sarRateChip = document.getElementById("sar-rate-chip");
 const kpiDepenses = document.getElementById("kpi-depenses");
 const kpiSolde = document.getElementById("kpi-solde");
 const kpiDettes = document.getElementById("kpi-dettes");
@@ -442,6 +467,10 @@ const registerGuardPasswordInput = document.getElementById("register-guard-passw
 const registerGuardPasswordConfirmInput = document.getElementById("register-guard-password-confirm");
 const registerGuardStatus = document.getElementById("register-guard-status");
 const btnClearRegisterGuard = document.getElementById("btn-clear-register-guard");
+const sarRateForm = document.getElementById("sar-rate-form");
+const sarRateInput = document.getElementById("sar-rate");
+const sarRatePasswordInput = document.getElementById("sar-rate-password");
+const sarRateHint = document.getElementById("sar-rate-hint");
 const btnThemeDark = document.getElementById("btn-theme-dark");
 const btnThemeLight = document.getElementById("btn-theme-light");
 
@@ -504,6 +533,8 @@ function applyPermissionLocks(){
  **********************/
 function ensureAtLeastOneChantier(){
   if(!currentUserData.chantiers) currentUserData.chantiers = {};
+  if(typeof currentUserData.sarRate !== "number") currentUserData.sarRate = null;
+  if(!currentUserData.sarRateUpdatedAt) currentUserData.sarRateUpdatedAt = null;
   const ids = Object.keys(currentUserData.chantiers);
   const actives = ids.filter(id => !currentUserData.chantiers[id].archive);
 
@@ -846,13 +877,33 @@ function renderBudgetStats(){
   const depensesFormatted = formatAmount(totals.depenses);
   const soldeFormatted = formatAmount(totals.solde);
   const dettesFormatted = formatAmount(totals.dettes);
+  const sarRate = getSarRate();
 
   statBudgetInitial.textContent = budgetInitialFormatted;
   statDepenses.textContent = depensesFormatted;
   statSolde.textContent = soldeFormatted;
   statDettes.textContent = dettesFormatted;
+  if(statBudgetInitialSar){
+    statBudgetInitialSar.textContent = sarRate
+      ? formatSarAmountFromXof(currentData.budgetInitial || 0)
+      : "Définir un taux SAR";
+  }
+  if(statSarRateNote){
+    const updatedDate = currentUserData && currentUserData.sarRateUpdatedAt ? new Date(currentUserData.sarRateUpdatedAt) : null;
+    const dateText = updatedDate && !isNaN(updatedDate.getTime()) ? updatedDate.toLocaleDateString("fr-FR") : null;
+    statSarRateNote.textContent = dateText
+      ? `${formatSarRateDescription()} · Mis à jour le ${dateText}`
+      : formatSarRateDescription();
+  }
 
   if(kpiBudgetInitial) kpiBudgetInitial.textContent = budgetInitialFormatted;
+  if(kpiBudgetInitialSar) kpiBudgetInitialSar.textContent = sarRate
+    ? formatSarAmountFromXof(currentData.budgetInitial || 0)
+    : "Taux SAR à définir";
+  if(sarRateChip){
+    sarRateChip.textContent = formatSarRateDescription();
+    sarRateChip.classList.toggle("pill-warning", !sarRate);
+  }
   if(kpiDepenses) kpiDepenses.textContent = depensesFormatted;
   if(kpiSolde) kpiSolde.textContent = soldeFormatted;
   if(kpiDettes) kpiDettes.textContent = dettesFormatted;
@@ -1695,6 +1746,41 @@ if(customListsForm){
   });
 }
 
+if(sarRateForm){
+  sarRateForm.addEventListener("submit",async (e)=>{
+    e.preventDefault();
+    if(!currentUserData) return;
+    if(!requireAdmin("La mise à jour du taux SAR")) return;
+
+    const rate = parseFloat(sarRateInput.value);
+    if(!Number.isFinite(rate) || rate <= 0){
+      alert("Veuillez saisir un taux positif (1 SAR = n FCFA).");
+      return;
+    }
+
+    const adminPassword = sarRatePasswordInput.value;
+    if(!adminPassword){
+      alert("Veuillez saisir le mot de passe administrateur pour confirmer la modification.");
+      return;
+    }
+
+    const record = getCurrentUserRecord();
+    if(!record || !(await verifyPassword(record, adminPassword))){
+      alert("Mot de passe administrateur incorrect.");
+      return;
+    }
+
+    currentUserData.sarRate = rate;
+    currentUserData.sarRateUpdatedAt = new Date().toISOString();
+    saveUserData(currentUser,currentUserData);
+    sarRatePasswordInput.value = "";
+    renderSarRateSettings();
+    renderBudgetStats();
+    addLog(`Mise à jour du taux SAR : ${formatSarRateDescription()}.`);
+    alert("Taux SAR mis à jour.");
+  });
+}
+
 /**********************
  * Paramètres chantiers
  **********************/
@@ -1975,6 +2061,7 @@ function renderSettingsView(){
   }
   renderRegisterGuardControls();
   renderCustomLists();
+  renderSarRateSettings();
   renderSettingsChantiers();
   renderLogs();
 }
@@ -1997,6 +2084,27 @@ function renderCustomLists(){
   customMaterialsTextarea.value = (currentUserData.customLists.materiaux || []).join("\n");
   customMetiersTextarea.value = (currentUserData.customLists.metiers || []).join("\n");
   customCategoriesTextarea.value = (currentUserData.customLists.categories || []).join("\n");
+}
+
+function renderSarRateSettings(){
+  if(!sarRateInput || !sarRateHint) return;
+  const rate = getSarRate();
+  sarRateInput.value = rate || "";
+
+  if(!currentUserData){
+    sarRateHint.textContent = "Connectez-vous pour ajuster le taux SAR.";
+    return;
+  }
+
+  const updatedDate = currentUserData.sarRateUpdatedAt ? new Date(currentUserData.sarRateUpdatedAt) : null;
+  const dateText = updatedDate && !isNaN(updatedDate.getTime()) ? updatedDate.toLocaleString("fr-FR") : null;
+  if(rate){
+    sarRateHint.textContent = dateText
+      ? `${formatSarRateDescription()} (mis à jour le ${dateText})`
+      : formatSarRateDescription();
+  }else{
+    sarRateHint.textContent = "Définissez le taux du jour pour afficher le budget en SAR.";
+  }
 }
 
 /**********************
