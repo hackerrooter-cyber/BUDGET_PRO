@@ -194,6 +194,7 @@ function validatePasswordComplexity(pwd){
 /**********************
  * Stockage local
  **********************/
+const storage = window.nativeStorage || window.localStorage;
 const LS_USERS_KEY = "chantierApp_users";
 const LS_CURRENT_USER_KEY = "chantierApp_currentUser";
 const LS_DATA_PREFIX = "chantierApp_data_";
@@ -218,7 +219,7 @@ function getCustomList(key){
 
 function loadUsers(){
   try{
-    const raw = localStorage.getItem(LS_USERS_KEY);
+    const raw = storage.getItem(LS_USERS_KEY);
     return raw ? JSON.parse(raw) : [];
   }catch(e){
     console.error("Erreur lecture utilisateurs:", e);
@@ -226,7 +227,7 @@ function loadUsers(){
   }
 }
 function saveUsers(list){
-  localStorage.setItem(LS_USERS_KEY, JSON.stringify(list));
+  storage.setItem(LS_USERS_KEY, JSON.stringify(list));
 }
 function hasAdminAccount(users){
   const list = Array.isArray(users) ? users : loadUsers();
@@ -234,30 +235,30 @@ function hasAdminAccount(users){
 }
 function loadRegisterGuardHash(){
   try{
-    return localStorage.getItem(LS_REGISTER_GUARD_KEY);
+    return storage.getItem(LS_REGISTER_GUARD_KEY);
   }catch(e){
     console.error("Erreur lecture mot de passe de création", e);
     return null;
   }
 }
 function saveRegisterGuardHash(hash){
-  localStorage.setItem(LS_REGISTER_GUARD_KEY, hash);
+  storage.setItem(LS_REGISTER_GUARD_KEY, hash);
 }
 function clearRegisterGuardHash(){
-  localStorage.removeItem(LS_REGISTER_GUARD_KEY);
+  storage.removeItem(LS_REGISTER_GUARD_KEY);
 }
 function getCurrentUsername(){
-  return localStorage.getItem(LS_CURRENT_USER_KEY);
+  return storage.getItem(LS_CURRENT_USER_KEY);
 }
 function setCurrentUsername(name){
-  if(name) localStorage.setItem(LS_CURRENT_USER_KEY, name);
-  else localStorage.removeItem(LS_CURRENT_USER_KEY);
+  if(name) storage.setItem(LS_CURRENT_USER_KEY, name);
+  else storage.removeItem(LS_CURRENT_USER_KEY);
 }
 
 function loadUserData(username){
   const key = LS_DATA_PREFIX + username;
   try{
-    const raw = localStorage.getItem(key);
+    const raw = storage.getItem(key);
     if(!raw){
       return { chantiers:{}, chantierActif:null, theme:"dark", logs:[], customLists:{ materiaux:[], metiers:[], categories:[] }, sarRate:null, sarRateUpdatedAt:null };
     }
@@ -323,7 +324,7 @@ function loadUserData(username){
 }
 function saveUserData(username,data){
   const key = LS_DATA_PREFIX + username;
-  localStorage.setItem(key, JSON.stringify(data));
+  storage.setItem(key, JSON.stringify(data));
 }
 
 /**********************
@@ -1639,10 +1640,10 @@ formChangeUsername.addEventListener("submit",async (e)=>{
 
   const oldKey = LS_DATA_PREFIX + currentUser;
   const newKey = LS_DATA_PREFIX + newUsername;
-  const dataRaw = localStorage.getItem(oldKey);
+  const dataRaw = storage.getItem(oldKey);
   if(dataRaw != null){
-    localStorage.setItem(newKey,dataRaw);
-    localStorage.removeItem(oldKey);
+    storage.setItem(newKey,dataRaw);
+    storage.removeItem(oldKey);
   }
 
   me.username = newUsername;
